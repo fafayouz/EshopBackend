@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const sendMail = require("../utils/sendMail");
 const sendToken = require("../utils/jwtToken");
 const { isAuthenticated, isAdmin } = require("../middleware/auth");
+const ConfirmationEmailTemplate  = require("../EmailsTemplates/ConfirmationsEmail");
 
 // create user
 router.post("/create-user", async (req, res, next) => {
@@ -35,14 +36,10 @@ router.post("/create-user", async (req, res, next) => {
 
     const activationToken = createActivationToken(user);
 
-    const activationUrl = `https://eshop-tutorial-pyri.vercel.app/activation/${activationToken}`;
+    const activationUrl = `http://localhost:3000/activation/${activationToken}`;
 
     try {
-      await sendMail({
-        email: user.email,
-        subject: "Activate your account",
-        message: `Hello ${user.name}, please click on the link to activate your account: ${activationUrl}`,
-      });
+      await sendMail(user.email , activationUrl , "" , "Activate your account " , ConfirmationEmailTemplate);
       res.status(201).json({
         success: true,
         message: `please check your email:- ${user.email} to activate your account!`,
@@ -413,5 +410,72 @@ router.delete(
     }
   })
 );
+
+
+// forgot password
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    // Generate reset password token
+    const resetToken = jwt.sign({ id: user._id }, process.env.RESET_PASSWORD_SECRET, {
+      expiresIn: "10m", // Set the expiration time for the reset token (e.g., 10 minutes)
+    });
+
+    const resetPasswordUrl = `http://localhost:3000/reset-password/${resetToken}`;
+
+    try {
+      await sendMail({
+        email: user.email,
+        subject: "Reset your password",
+        message: `Hello ${user.name}, please click on the link to reset your password: ${resetPasswordUrl}`,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Reset password link has been sent to your email: ${user.email}`,
+      });
+    } catch (error) {
+      return next(new ErrorHandler(error.message, 500));
+    }
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 500));
+  }
+});
+
+// reset password
+router.post("/reset-password/:token", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // Verify the reset token
+    const decoded = jwt.verify(token, process.env.RESET_PASSWORD_SECRET);
+
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return next(new ErrorHandler("User not found", 404));
+    }
+
+    user.password = password;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful!",
+    });
+  } catch (error) {
+    return next(new ErrorHandler(error.message, 500));
+  }
+});
+
 
 module.exports = router;

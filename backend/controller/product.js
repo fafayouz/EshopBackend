@@ -40,6 +40,14 @@ router.post(
         }
       
         const productData = req.body;
+        let totalStock = 0;
+        if (productData.variants && productData.variants.length > 0) {
+          totalStock = productData.variants.reduce(
+            (acc, variant) => acc + (variant.stock || 0),
+            0
+          );
+        }
+        productData.stock = totalStock;  
         productData.images = imagesLinks;
         productData.shop = shop;
 
@@ -85,23 +93,24 @@ router.delete(
         return next(new ErrorHandler("Product is not found with this id", 404));
       }    
 
-      for (let i = 0; 1 < product.images.length; i++) {
+      for (let i = 0; i < product.images.length; i++) { // Corrected loop condition
         const result = await cloudinary.v2.uploader.destroy(
           product.images[i].public_id
         );
       }
     
-      await product.remove();
+      await Product.deleteOne({ _id: req.params.id }); // Use deleteOne() method
 
       res.status(201).json({
         success: true,
         message: "Product Deleted successfully!",
       });
     } catch (error) {
-      return next(new ErrorHandler(error, 400));
+      console.log(error);
     }
   })
 );
+
 
 // get all products
 router.get(

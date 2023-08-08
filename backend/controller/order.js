@@ -8,29 +8,20 @@ const Shop = require("../model/shop");
 const Product = require("../model/product");
 
 // create new order
+// create new order
+// create new order
 router.post(
   "/create-order",
   catchAsyncErrors(async (req, res, next) => {
     try {
-      const { cart, shippingAddress, user, totalPrice, paymentInfo } = req.body;
+      const { cart, shippingAddress, user, paymentInfo } = req.body;
 
-      //   group cart items by shopId
-      const shopItemsMap = new Map();
-
-      for (const item of cart) {
-        const shopId = item.shopId;
-        if (!shopItemsMap.has(shopId)) {
-          shopItemsMap.set(shopId, []);
-        }
-        shopItemsMap.get(shopId).push(item);
-      }
-
-      // create an order for each shop
       const orders = [];
 
-      for (const [shopId, items] of shopItemsMap) {
+      for (const item of cart) {
+        const totalPrice = item.discountPrice * item.qty;
         const order = await Order.create({
-          cart: items,
+          cart: [item], // Create an order with a single item
           shippingAddress,
           user,
           totalPrice,
@@ -48,6 +39,8 @@ router.post(
     }
   })
 );
+
+
 
 // get all orders of user
 router.get(
@@ -90,6 +83,7 @@ router.get(
 );
 
 // update order status for seller
+// update order status for seller
 router.put(
   "/update-order-status/:id",
   isSeller,
@@ -100,19 +94,38 @@ router.put(
       if (!order) {
         return next(new ErrorHandler("Order not found with this id", 400));
       }
+      
       if (req.body.status === "Transferred to delivery partner") {
         order.cart.forEach(async (o) => {
           await updateOrder(o._id, o.qty);
         });
+        for (const cartItem of order.cart) {
+          await updateProductStock(cartItem.variant._id, cartItem.qty);
+          console.log("Updating product:", cartItem.variant._id);
+          console.log("Qty:", cartItem.qty);
+
+        }
+        order.stockDecremented = true; // Set the flag to indicate stock decrement
       }
 
       order.status = req.body.status;
 
-      if (req.body.status === "Delivered") {
+      if (req.body.status === "Delivered" ) {
         order.deliveredAt = Date.now();
         order.paymentInfo.status = "Succeeded";
-        const serviceCharge = order.totalPrice * .10;
+        const serviceCharge = order.totalPrice * 0.01;
         await updateSellerInfo(order.totalPrice - serviceCharge);
+        if(order.stockDecremented === false) {
+          order.cart.forEach(async (o) => {
+            await updateOrder(o._id, o.qty);
+          });
+          for (const cartItem of order.cart) {
+            await updateProductStock(cartItem.variant._id, cartItem.qty);
+            console.log("Updating product:", cartItem.variant._id);
+            console.log("Qty:", cartItem.qty);
+  
+          }
+        }
       }
 
       await order.save({ validateBeforeSave: false });
@@ -130,12 +143,31 @@ router.put(
 
         await product.save({ validateBeforeSave: false });
       }
+      async function updateProductStock(productId, quantity) {
+        const product = await Product.findOne({ "variants._id": productId });
+      
+        if (!product) {
+          console.log(`Product with variant ${productId} not found`);
+          return;
+        }
+      
+        const variant = product.variants.find(v => v._id.toString() === productId);
+      
+        if (!variant) {
+          console.log(`Variant ${productId} not found in product ${product._id}`);
+          return;
+        }
+      
 
+        variant.stock = variant.stock - quantity;
+        variant.sold_out = variant.sold_out + quantity;
+        await product.save({ validateBeforeSave: false });
+      }
       async function updateSellerInfo(amount) {
         const seller = await Shop.findById(req.seller.id);
         
-        seller.availableBalance = amount;
-
+        seller.availableBalance = seller.availableBalance + amount;
+        
         await seller.save();
       }
     } catch (error) {
@@ -143,6 +175,7 @@ router.put(
     }
   })
 );
+
 
 // give a refund ----- user
 router.put(

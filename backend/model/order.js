@@ -13,6 +13,10 @@ const orderSchema = new mongoose.Schema({
         type: Object,
         required: true,
     },
+    stockDecremented:{
+        type:Boolean,
+        default:false
+    },
     totalPrice:{
         type: Number,
         required: true,
@@ -32,6 +36,7 @@ const orderSchema = new mongoose.Schema({
             type: String,
         },
     },
+   
     paidAt:{
         type: Date,
         default: Date.now(),

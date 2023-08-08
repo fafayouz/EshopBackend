@@ -17,6 +17,13 @@ router.post(
       if (!shop) {
         return next(new ErrorHandler("Shop Id is invalid!", 400));
       } else {
+        const { description , image /* other event data */ } = req.body;
+
+        const maxDescriptionLength = 400; // Set your desired limit here
+        // Check the length of the description
+        if (description.length > maxDescriptionLength) {
+          return next(new ErrorHandler("Description is too long!", 400));
+        }
         let images = [];
 
         if (typeof req.body.images === "string") {
@@ -38,11 +45,12 @@ router.post(
           });
         }
 
-        const productData = req.body;
-        productData.images = imagesLinks;
-        productData.shop = shop;
+        const eventData = req.body;
+        eventData.images = imagesLinks;
+        eventData.shop = shop;
 
-        const event = await Event.create(productData);
+        const event = await Event.create(eventData);
+
 
         res.status(201).json({
           success: true,
@@ -55,11 +63,14 @@ router.post(
   })
 );
 
-// get all events
+// get all events with more sold_out
 router.get("/get-all-events", async (req, res, next) => {
   try {
-    const events = await Event.find();
-    res.status(201).json({
+    const events = await Event.find({ sold_out: { $gt: 0 } })
+      .sort({ sold_out: -1 }) // Sort in descending order of sold_out count
+      .limit(10); // You can adjust the limit as needed
+
+    res.status(200).json({
       success: true,
       events,
     });
@@ -67,6 +78,7 @@ router.get("/get-all-events", async (req, res, next) => {
     return next(new ErrorHandler(error, 400));
   }
 });
+
 
 // get all events of a shop
 router.get(
@@ -92,17 +104,17 @@ router.delete(
     try {
       const event = await Event.findById(req.params.id);
 
-      if (!product) {
+      if (!event) {
         return next(new ErrorHandler("Product is not found with this id", 404));
-      }    
+      }
 
-      for (let i = 0; 1 < product.images.length; i++) {
+      for (let i = 0; 1 < event.images.length; i++) {
         const result = await cloudinary.v2.uploader.destroy(
           event.images[i].public_id
         );
       }
-    
-      await event.remove();
+
+      await event.deleteOne({ _id: req.params.id });
 
       res.status(201).json({
         success: true,

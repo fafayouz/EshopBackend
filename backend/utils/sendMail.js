@@ -1,6 +1,7 @@
 const nodemailer = require("nodemailer");
+const ejs = require('ejs');
 
-const sendMail = async (options) => {
+const sendMail = async (to, url, txt, subject, template)  => {
     const transporter = nodemailer.createTransport({
         host: process.env.SMPT_HOST,
         port: process.env.SMPT_PORT,
@@ -10,12 +11,13 @@ const sendMail = async (options) => {
             pass: process.env.SMPT_PASSWORD,
         },
     });
+// Compile the email template with dynamic data
 
     const mailOptions = {
         from: process.env.SMPT_MAIL,
-        to: options.email,
-        subject: options.subject,
-        text: options.message,
+        to: to,
+        subject: subject,
+        html:template(to , url , subject)
     };
 
     await transporter.sendMail(mailOptions);

@@ -1,0 +1,18 @@
+# Ignore node_modules directory
+node_modules/
+
+# Ignore build output
+build/
+dist/
+.next/
+.vscode/
+
+# Ignore environment files (if they contain sensitive information)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Ignore logs and cache files
+*.log
+.cache/
