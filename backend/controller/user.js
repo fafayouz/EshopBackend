@@ -36,7 +36,7 @@ router.post("/create-user", async (req, res, next) => {
 
     const activationToken = createActivationToken(user);
 
-    const activationUrl = `http://localhost:3000/activation/${activationToken}`;
+    const activationUrl = `https://azhaarstore.vercel.app/activation/${activationToken}`;
 
     try {
       await sendMail(user.email , activationUrl , "" , "Activate your account " , ConfirmationEmailTemplate);
@@ -428,7 +428,7 @@ router.post("/forgot-password", async (req, res, next) => {
       expiresIn: "10m", // Set the expiration time for the reset token (e.g., 10 minutes)
     });
 
-    const resetPasswordUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const resetPasswordUrl = `https://azhaarstore.vercel.app/reset-password/${resetToken}`;
 
     try {
       await sendMail({
